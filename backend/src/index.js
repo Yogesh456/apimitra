@@ -39,7 +39,12 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json({ limit: '1mb' }));
+// Global JSON parser — but SKIP the Razorpay webhook, which needs the raw body
+// for HMAC signature verification (its route attaches its own express.raw()).
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/wallet/webhook') return next();
+  express.json({ limit: '1mb' })(req, res, next);
+});
 
 // ── Rate limiting ─────────────────────────────────────────────────
 // Global soft limit across the whole API
