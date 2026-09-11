@@ -74,4 +74,49 @@ router.post('/verify-payment', auth, async (req, res) => {
   }
 });
 
+// POST /api/wallet/webhook - Razorpay server-to-server confirmation (backup crediting)
+// Mounted with express.raw() so the raw body is available for signature verification.
+// This is a SERVER call from Razorpay, so there is NO auth middleware here.
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'];
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!secret) return res.status(500).json({ message: 'Webhook secret not configured' });
+
+    // Verify the webhook signature against the RAW body
+    const expected = crypto
+      .createHmac('sha256', secret)
+      .update(req.body) // req.body is a Buffer here (express.raw)
+      .digest('hex');
+
+    if (expected !== signature)
+      return res.status(400).json({ message: 'Invalid webhook signature' });
+
+    const event = JSON.parse(req.body.toString());
+
+    // Only act on a captured payment
+    if (event.event === 'payment.captured') {
+      const payment = event.payload.payment.entity;
+      const orderId = payment.order_id;
+      const paymentId = payment.id;
+
+      // Idempotent: only credit if the transaction is still pending
+      const txn = await Transaction.findOne({ razorpayOrderId: orderId, status: 'pending' });
+      if (txn) {
+        await User.findByIdAndUpdate(txn.user, { $inc: { wallet: txn.amount } });
+        txn.razorpayPaymentId = paymentId;
+        txn.status = 'success';
+        await txn.save();
+      }
+      // If not pending, it was already credited by verify-payment — do nothing (no double credit).
+    }
+
+    // Always 200 quickly so Razorpay does not retry a handled event
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Webhook error:', err.message);
+    res.status(500).json({ message: 'Webhook processing error' });
+  }
+});
+
 module.exports = router;
