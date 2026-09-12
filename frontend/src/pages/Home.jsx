@@ -152,6 +152,7 @@ export default function Home() {
             <Link to="/terms" className="transition hover:text-white">Terms &amp; Conditions</Link>
             <Link to="/privacy" className="transition hover:text-white">Privacy Policy</Link>
             <Link to="/refund-policy" className="transition hover:text-white">Refund &amp; Return Policy</Link>
+            <Link to="/contact" className="transition hover:text-white">Contact Us</Link>
             <Link to="/login" className="transition hover:text-white">Login</Link>
           </nav>
         </div>
