@@ -6,12 +6,14 @@ import Loader from './components/Loader';
 
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
 import Wallet from './pages/Wallet';
 import History from './pages/History';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Terms from './pages/Terms';
+import RefundPolicy from './pages/RefundPolicy';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
@@ -45,11 +47,12 @@ function AppRoutes() {
       {/* Show support button for logged-in non-admin users */}
       {user && user.role !== 'admin' && <SupportButton />}
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/refund-policy" element={<RefundPolicy />} />
 
         {/* User routes */}
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
