@@ -5,12 +5,16 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [apiPortal, setApiPortal] = useState({ balance: 0, threshold: 100 });
 
   useEffect(() => {
     axios.get('/api/analytics/dashboard').then((r) => {
       setData(r.data);
       setLoading(false);
     });
+    axios.get('/api/content/admin/settings', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then((r) => setApiPortal({ balance: r.data.apiPortalBalance || 0, threshold: r.data.apiLowBalanceThreshold ?? 100 }))
+      .catch(() => {});
   }, []);
 
   if (loading) return <div className="p-8 text-gray-400">Loading analytics…</div>;
@@ -31,6 +35,17 @@ export default function AdminDashboard() {
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
+
+      {/* API Portal (FinPayUltra) balance banner */}
+      <div className={`mb-6 rounded-2xl p-5 flex items-center justify-between ${apiPortal.balance <= apiPortal.threshold ? 'bg-red-50 border border-red-200' : 'bg-indigo-50 border border-indigo-200'}`}>
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">API Portal Balance (FinPayUltra)</div>
+          <div className={`text-3xl font-extrabold ${apiPortal.balance <= apiPortal.threshold ? 'text-red-600' : 'text-indigo-700'}`}>₹{Number(apiPortal.balance).toFixed(2)}</div>
+        </div>
+        {apiPortal.balance <= apiPortal.threshold
+          ? <div className="text-red-600 text-sm font-semibold">⚠️ Low — recharge & update in Admin Account</div>
+          : <div className="text-gray-400 text-sm">Update it in Admin Account →</div>}
+      </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

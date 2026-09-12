@@ -87,4 +87,36 @@ router.patch('/admin/settings', adminAuth, async (req, res) => {
   res.json(s);
 });
 
+// ── API Portal (FinPayUltra) balance tracker ──────────
+// PATCH /api/content/admin/api-balance  { mode: 'set'|'add', amount, threshold? }
+router.patch('/admin/api-balance', adminAuth, async (req, res) => {
+  try {
+    const { mode, amount, threshold } = req.body;
+    const amt = Number(amount);
+    if (isNaN(amt) || amt < 0) return res.status(400).json({ message: 'Enter a valid amount' });
+
+    const update = {};
+    if (mode === 'add') {
+      // recharge: increment existing balance
+      const s = await SiteSettings.findOneAndUpdate(
+        { key: 'global' },
+        { $inc: { apiPortalBalance: amt }, ...(threshold !== undefined ? { $set: { apiLowBalanceThreshold: Number(threshold) } } : {}) },
+        { new: true, upsert: true }
+      );
+      return res.json(s);
+    }
+    // set: absolute value
+    update.apiPortalBalance = amt;
+    if (threshold !== undefined) update.apiLowBalanceThreshold = Number(threshold);
+    const s = await SiteSettings.findOneAndUpdate(
+      { key: 'global' },
+      { $set: update },
+      { new: true, upsert: true }
+    );
+    res.json(s);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router;

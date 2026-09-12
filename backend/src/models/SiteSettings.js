@@ -14,6 +14,9 @@ const siteSettingsSchema = new mongoose.Schema({
   // Manual UPI top-up config (editable from admin)
   upiId: { type: String, default: '' },
   upiPayee: { type: String, default: 'ApiMitra' },
+  // FinPayUltra (API provider) prepaid balance tracker
+  apiPortalBalance: { type: Number, default: 0 },
+  apiLowBalanceThreshold: { type: Number, default: 100 },
 }, { timestamps: true });
 
 module.exports = mongoose.model('SiteSettings', siteSettingsSchema);

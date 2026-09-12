@@ -19,14 +19,42 @@ export default function AdminSettings() {
   const [upiMsg, setUpiMsg] = useState('');
   const [upiSaving, setUpiSaving] = useState(false);
 
+  // API portal (FinPayUltra) balance tracker
+  const [apiBalance, setApiBalance] = useState(0);
+  const [apiThreshold, setApiThreshold] = useState(100);
+  const [apiAmount, setApiAmount] = useState('');
+  const [apiMsg, setApiMsg] = useState('');
+  const [apiSaving, setApiSaving] = useState(false);
+
   useEffect(() => {
     axios.get('/api/admin/account', authHeader())
       .then((res) => { setEmail(res.data.email); setCurrentEmail(res.data.email); })
       .catch(() => {});
     axios.get('/api/content/admin/settings', authHeader())
-      .then((res) => { setUpiId(res.data.upiId || ''); setUpiPayee(res.data.upiPayee || 'ApiMitra'); })
+      .then((res) => {
+        setUpiId(res.data.upiId || '');
+        setUpiPayee(res.data.upiPayee || 'ApiMitra');
+        setApiBalance(res.data.apiPortalBalance || 0);
+        setApiThreshold(res.data.apiLowBalanceThreshold ?? 100);
+      })
       .catch(() => {});
   }, []);
+
+  const saveApiBalance = async (mode) => {
+    setApiMsg('');
+    const amt = Number(apiAmount);
+    if (isNaN(amt) || amt < 0) { setApiMsg('❌ Enter a valid amount'); return; }
+    setApiSaving(true);
+    try {
+      const res = await axios.patch('/api/content/admin/api-balance',
+        { mode, amount: amt, threshold: Number(apiThreshold) }, authHeader());
+      setApiBalance(res.data.apiPortalBalance || 0);
+      setApiAmount('');
+      setApiMsg(mode === 'add' ? `✅ Added ₹${amt} — new balance ₹${res.data.apiPortalBalance}` : `✅ Balance set to ₹${res.data.apiPortalBalance}`);
+    } catch (err) {
+      setApiMsg('❌ ' + (err.response?.data?.message || 'Save failed'));
+    } finally { setApiSaving(false); }
+  };
 
   const saveUpi = async (e) => {
     e.preventDefault();
@@ -142,6 +170,52 @@ export default function AdminSettings() {
           {upiSaving ? 'Saving…' : 'Save UPI Details'}
         </button>
       </form>
+
+      {/* API Portal Balance tracker */}
+      <div className="mt-8 bg-white rounded-2xl shadow-sm p-6 space-y-5">
+        <div>
+          <h2 className="text-lg font-bold text-gray-800">API Portal Balance</h2>
+          <p className="text-gray-500 text-sm mt-0.5">Track your prepaid FinPayUltra balance. It auto-decreases by each service's API cost-per-hit on every query.</p>
+        </div>
+
+        <div className={`rounded-xl p-4 flex items-center justify-between ${apiBalance <= apiThreshold ? 'bg-red-50 border border-red-200' : 'bg-emerald-50 border border-emerald-200'}`}>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Current balance</div>
+            <div className={`text-3xl font-extrabold ${apiBalance <= apiThreshold ? 'text-red-600' : 'text-emerald-700'}`}>₹{Number(apiBalance).toFixed(2)}</div>
+          </div>
+          {apiBalance <= apiThreshold && <div className="text-red-600 text-sm font-semibold">⚠️ Low balance — recharge soon</div>}
+        </div>
+
+        {apiMsg && (
+          <div className={`rounded-xl p-3 text-sm ${apiMsg.startsWith('✅') ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-600'}`}>
+            {apiMsg}
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-600 mb-1">Amount (₹)</label>
+          <input type="number" min="0" value={apiAmount} onChange={(e) => setApiAmount(e.target.value)}
+            placeholder="e.g. 2000"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div className="flex gap-3">
+          <button type="button" onClick={() => saveApiBalance('add')} disabled={apiSaving}
+            className="flex-1 bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm shadow disabled:opacity-50 active:scale-95 transition-transform">
+            + Add recharge
+          </button>
+          <button type="button" onClick={() => saveApiBalance('set')} disabled={apiSaving}
+            className="flex-1 bg-gray-700 text-white font-bold py-3 rounded-xl text-sm shadow disabled:opacity-50 active:scale-95 transition-transform">
+            Set exact balance
+          </button>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-600 mb-1">Low-balance warning below (₹)</label>
+          <input type="number" min="0" value={apiThreshold} onChange={(e) => setApiThreshold(e.target.value)}
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <p className="text-xs text-gray-400 mt-1">The threshold is saved when you click Add recharge or Set exact balance.</p>
+        </div>
+      </div>
     </div>
   );
 }

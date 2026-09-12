@@ -5,6 +5,7 @@ const { auth } = require('../middleware/auth');
 const Service = require('../models/Service');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const SiteSettings = require('../models/SiteSettings');
 
 // GET /api/services - list all active services
 router.get('/', auth, async (req, res) => {
@@ -71,6 +72,14 @@ router.post('/query/:slug', auth, async (req, res) => {
     await Service.findByIdAndUpdate(service._id, {
       $inc: { totalQueries: 1, totalRevenue: service.costPerQuery, totalApiCost: service.apiCostPerQuery || 0 },
     });
+    // Deduct the provider's per-hit cost from the tracked API portal balance
+    if (service.apiCostPerQuery > 0) {
+      await SiteSettings.findOneAndUpdate(
+        { key: 'global' },
+        { $inc: { apiPortalBalance: -service.apiCostPerQuery } },
+        { upsert: true }
+      );
+    }
     await Transaction.create({
       user: req.user._id,
       type: 'debit',
