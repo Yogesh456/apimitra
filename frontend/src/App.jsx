@@ -18,6 +18,7 @@ import Contact from './pages/Contact';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
+import AdminTopups from './pages/admin/AdminTopups';
 import AdminServices from './pages/admin/AdminServices';
 import AdminQueryLogs from './pages/admin/AdminQueryLogs';
 import AdminContent from './pages/admin/AdminContent';
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="/admin" element={<PrivateRoute adminOnly><AdminLayout /></PrivateRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="topups" element={<AdminTopups />} />
           <Route path="services" element={<AdminServices />} />
           <Route path="query-logs" element={<AdminQueryLogs />} />
           <Route path="content" element={<AdminContent />} />

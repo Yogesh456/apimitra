@@ -207,4 +207,50 @@ router.patch('/account', adminAuth, async (req, res) => {
   }
 });
 
+// ── Manual UPI top-up requests ────────────────────────────────────
+
+// GET /api/admin/topup-requests?status=pending
+router.get('/topup-requests', adminAuth, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = { method: 'manual_upi' };
+    if (status) filter.status = status;
+    const requests = await Transaction.find(filter)
+      .populate('user', 'name email mobile shopName')
+      .sort({ createdAt: -1 })
+      .limit(500);
+    res.json(requests);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PATCH /api/admin/topup-requests/:id  { action: 'approve' | 'reject' }
+// Approve credits the user's wallet (idempotent — only a pending request is acted on).
+router.patch('/topup-requests/:id', adminAuth, async (req, res) => {
+  try {
+    const { action } = req.body;
+    const txn = await Transaction.findById(req.params.id);
+    if (!txn || txn.method !== 'manual_upi')
+      return res.status(404).json({ message: 'Request not found' });
+    if (txn.status !== 'pending')
+      return res.status(400).json({ message: `Request already ${txn.status}` });
+
+    if (action === 'approve') {
+      await User.findByIdAndUpdate(txn.user, { $inc: { wallet: txn.amount } });
+      txn.status = 'success';
+      await txn.save();
+      return res.json({ message: 'Approved — wallet credited', status: 'success' });
+    }
+    if (action === 'reject') {
+      txn.status = 'failed';
+      await txn.save();
+      return res.json({ message: 'Request rejected', status: 'failed' });
+    }
+    return res.status(400).json({ message: 'Invalid action' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router;

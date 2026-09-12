@@ -4,58 +4,64 @@ import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
 export default function Wallet() {
-  const { user, refreshWallet } = useAuth();
+  const { user } = useAuth();
   const [amount, setAmount] = useState('');
+  const [utr, setUtr] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [upi, setUpi] = useState({ upiId: '', payee: 'ApiMitra' });
+  const [requests, setRequests] = useState([]);
   const presets = [50, 100, 200, 500, 1000];
 
-  // On return from Instamojo (redirect_url = /wallet?im=1&payment_id=..&payment_request_id=..)
-  // confirm the payment with the backend and credit the wallet.
+  const loadRequests = async () => {
+    try {
+      const r = await axios.get('/api/wallet/my-requests');
+      setRequests(r.data);
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('im') !== '1') return;
-    const paymentId = params.get('payment_id');
-    const requestId = params.get('payment_request_id');
-    // Clean the URL so a refresh doesn't re-trigger
-    window.history.replaceState({}, '', '/wallet');
-    if (!paymentId || !requestId) {
-      setMessage('❌ Payment was cancelled or failed');
-      return;
-    }
-    (async () => {
-      setLoading(true);
-      try {
-        const v = await axios.get('/api/wallet/confirm', {
-          params: { payment_id: paymentId, payment_request_id: requestId },
-        });
-        setMessage(`✅ ${v.data.message} Balance: ₹${v.data.wallet}`);
-        await refreshWallet();
-      } catch (err) {
-        setMessage(err.response?.data?.message || '❌ Could not confirm payment');
-      } finally {
-        setLoading(false);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    axios.get('/api/wallet/upi-info').then((r) => setUpi(r.data)).catch(() => {});
+    loadRequests();
   }, []);
 
-  const handleTopUp = async (e) => {
+  // Build the UPI deep-link + a QR image for it (amount-aware)
+  const amt = Number(amount) || 0;
+  const upiLink =
+    upi.upiId &&
+    `upi://pay?pa=${encodeURIComponent(upi.upiId)}&pn=${encodeURIComponent(upi.payee)}${
+      amt >= 10 ? `&am=${amt}` : ''
+    }&cu=INR&tn=${encodeURIComponent('ApiMitra Wallet Top-Up')}`;
+  const qrSrc = upiLink
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiLink)}`
+    : '';
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
-    if (!amount || amount < 10) return setMessage('Minimum top-up is ₹10');
+    if (!amount || amount < 10) return setMessage('❌ Minimum top-up is ₹10');
+    if (!utr || utr.trim().length < 6) return setMessage('❌ Enter the UPI reference / UTR number after paying');
     setLoading(true);
     try {
-      const res = await axios.post('/api/wallet/create-order', { amount: Number(amount) });
-      const { paymentUrl } = res.data;
-      if (!paymentUrl) throw new Error('No payment URL');
-      // Redirect the browser to Instamojo's hosted payment page
-      window.location.href = paymentUrl;
+      const r = await axios.post('/api/wallet/topup-request', { amount: Number(amount), utr: utr.trim() });
+      setMessage(`✅ ${r.data.message}`);
+      setAmount('');
+      setUtr('');
+      await loadRequests();
     } catch (err) {
-      setMessage(err.response?.data?.message || 'Failed to initiate payment');
+      setMessage(`❌ ${err.response?.data?.message || 'Could not submit request'}`);
+    } finally {
       setLoading(false);
     }
   };
+
+  const statusChip = (s) =>
+    s === 'success'
+      ? 'bg-emerald-50 text-emerald-700'
+      : s === 'failed'
+      ? 'bg-red-50 text-red-600'
+      : 'bg-amber-50 text-amber-700';
+  const statusLabel = (s) => (s === 'success' ? 'Approved' : s === 'failed' ? 'Rejected' : 'Pending');
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -64,16 +70,18 @@ export default function Wallet() {
       <div className="grad-brand px-4 pt-5 pb-14 rounded-b-[2rem]">
         <p className="text-white/70 text-sm">Available Balance</p>
         <p className="text-white text-4xl font-extrabold mt-1">₹{user?.wallet?.toFixed(2)}</p>
-        <p className="text-white/50 text-xs mt-1">Tap below to add money instantly</p>
+        <p className="text-white/50 text-xs mt-1">Add money via UPI — credited after quick verification</p>
       </div>
 
-      <div className="px-4 -mt-8">
+      <div className="px-4 -mt-8 pb-8">
         <div className="card p-5 animate-fade-up">
-          <h3 className="font-bold text-gray-800 mb-4">Add Money</h3>
+          <h3 className="font-bold text-gray-800 mb-4">Add Money via UPI</h3>
 
-          <div className="grid grid-cols-5 gap-2 mb-4">
+          {/* Step 1: amount */}
+          <label className="block text-xs font-semibold text-gray-500 mb-2">1. Choose amount</label>
+          <div className="grid grid-cols-5 gap-2 mb-3">
             {presets.map((p) => (
-              <button key={p} onClick={() => setAmount(p)}
+              <button key={p} onClick={() => setAmount(p)} type="button"
                 className={`py-2.5 rounded-2xl text-sm font-bold border transition press ${
                   amount == p ? 'grad-brand text-white border-transparent shadow-md' : 'border-slate-200 text-gray-600 bg-slate-50'
                 }`}>
@@ -81,16 +89,38 @@ export default function Wallet() {
               </button>
             ))}
           </div>
+          <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500 mb-5">
+            <span className="px-4 text-gray-400 text-xl font-bold">₹</span>
+            <input type="number" min="10" value={amount}
+              onChange={(e) => setAmount(e.target.value)} placeholder="Custom amount"
+              className="flex-1 py-3.5 pr-3 text-base bg-transparent focus:outline-none" />
+          </div>
 
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-gray-500 mb-1.5">Or enter custom amount</label>
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
-              <span className="px-4 text-gray-400 text-xl font-bold">₹</span>
-              <input type="number" min="10" value={amount}
-                onChange={(e) => setAmount(e.target.value)} placeholder="Enter amount"
-                className="flex-1 py-3.5 pr-3 text-base bg-transparent focus:outline-none" />
+          {/* Step 2: pay via QR */}
+          <label className="block text-xs font-semibold text-gray-500 mb-2">2. Scan &amp; pay with any UPI app</label>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col items-center mb-3">
+            {qrSrc ? (
+              <img src={qrSrc} alt="UPI QR code" width={200} height={200} className="rounded-xl bg-white p-2" />
+            ) : (
+              <div className="h-[200px] w-[200px] grid place-items-center text-sm text-gray-400">Loading QR…</div>
+            )}
+            <div className="mt-3 text-center">
+              <div className="text-xs text-gray-500">Pay to UPI ID</div>
+              <div className="font-bold text-gray-800 select-all">{upi.upiId || '—'}</div>
+              {amt >= 10 && <div className="text-xs text-indigo-600 mt-1">Amount pre-filled: ₹{amt}</div>}
             </div>
           </div>
+          {upiLink && (
+            <a href={upiLink} className="block text-center text-sm font-semibold text-indigo-600 mb-5">
+              Open in a UPI app on this phone →
+            </a>
+          )}
+
+          {/* Step 3: submit UTR */}
+          <label className="block text-xs font-semibold text-gray-500 mb-2">3. Enter the UPI reference number (UTR) after paying</label>
+          <input value={utr} onChange={(e) => setUtr(e.target.value)}
+            placeholder="e.g. 4198XXXXXXXX (from your payment app)"
+            className="w-full py-3.5 px-4 text-base bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4" />
 
           {message && (
             <div className={`mb-4 text-sm p-3 rounded-2xl ${message.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
@@ -98,17 +128,34 @@ export default function Wallet() {
             </div>
           )}
 
-          <button onClick={handleTopUp} disabled={loading}
+          <button onClick={handleSubmit} disabled={loading}
             className="w-full grad-brand text-white font-bold py-4 rounded-2xl text-base shadow-lg disabled:opacity-50 press">
-            {loading ? 'Processing…' : `Pay ₹${amount || '0'} securely`}
+            {loading ? 'Submitting…' : 'Submit top-up request'}
           </button>
+          <p className="mt-2 text-center text-xs text-gray-400">
+            Wallet is credited after we verify your payment (usually quickly).
+          </p>
         </div>
 
-        <div className="mt-4 card p-4 text-sm text-gray-600 space-y-2">
-          <div className="flex items-center gap-2">🔒 <span>Secured by Instamojo</span></div>
-          <div className="flex items-center gap-2">⚡ <span>Instant wallet credit</span></div>
-          <div className="flex items-center gap-2">💳 <span>UPI, Cards & Net Banking</span></div>
-        </div>
+        {/* Past requests */}
+        {requests.length > 0 && (
+          <div className="mt-4 card p-4">
+            <h4 className="font-bold text-gray-800 mb-3 text-sm">Your top-up requests</h4>
+            <div className="space-y-2">
+              {requests.map((r) => (
+                <div key={r._id} className="flex items-center justify-between text-sm border-b border-slate-100 pb-2 last:border-0">
+                  <div>
+                    <div className="font-semibold text-gray-800">₹{r.amount}</div>
+                    <div className="text-xs text-gray-400">UTR: {r.utr}</div>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusChip(r.status)}`}>
+                    {statusLabel(r.status)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

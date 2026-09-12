@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 const navItems = [
   { to: '/admin', label: '📊 Dashboard', end: true },
   { to: '/admin/users', label: '👥 Users' },
+  { to: '/admin/topups', label: '💰 Top-up Requests' },
   { to: '/admin/services', label: '⚙️ Services' },
   { to: '/admin/query-logs', label: '🗂️ Query Logs' },
   { to: '/admin/content', label: '📢 Content' },
