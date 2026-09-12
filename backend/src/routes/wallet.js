@@ -3,14 +3,24 @@ const router = express.Router();
 const { auth } = require('../middleware/auth');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const SiteSettings = require('../models/SiteSettings');
 
-// Your business UPI details (shown to users; QR is generated on the frontend)
+// Fallback UPI details (used only if admin hasn't set them in Site Settings)
 const UPI_ID = process.env.UPI_ID || '6265751150@okbizaxis';
 const UPI_PAYEE = process.env.UPI_PAYEE || 'ApiMitra';
 
 // GET /api/wallet/upi-info - the UPI id + payee the user should pay to
-router.get('/upi-info', auth, (req, res) => {
-  res.json({ upiId: UPI_ID, payee: UPI_PAYEE });
+// Prefers the admin-configured value in Site Settings, else env/default.
+router.get('/upi-info', auth, async (req, res) => {
+  try {
+    const s = await SiteSettings.findOne({ key: 'global' }).lean();
+    res.json({
+      upiId: (s && s.upiId) || UPI_ID,
+      payee: (s && s.upiPayee) || UPI_PAYEE,
+    });
+  } catch {
+    res.json({ upiId: UPI_ID, payee: UPI_PAYEE });
+  }
 });
 
 // POST /api/wallet/topup-request - user submits a manual UPI top-up for admin approval

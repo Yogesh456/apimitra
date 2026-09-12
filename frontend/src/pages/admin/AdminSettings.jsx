@@ -13,11 +13,33 @@ export default function AdminSettings() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // UPI payment settings
+  const [upiId, setUpiId] = useState('');
+  const [upiPayee, setUpiPayee] = useState('ApiMitra');
+  const [upiMsg, setUpiMsg] = useState('');
+  const [upiSaving, setUpiSaving] = useState(false);
+
   useEffect(() => {
     axios.get('/api/admin/account', authHeader())
       .then((res) => { setEmail(res.data.email); setCurrentEmail(res.data.email); })
       .catch(() => {});
+    axios.get('/api/content/admin/settings', authHeader())
+      .then((res) => { setUpiId(res.data.upiId || ''); setUpiPayee(res.data.upiPayee || 'ApiMitra'); })
+      .catch(() => {});
   }, []);
+
+  const saveUpi = async (e) => {
+    e.preventDefault();
+    setUpiMsg('');
+    if (!upiId || !upiId.includes('@')) { setUpiMsg('❌ Enter a valid UPI ID (e.g. name@bank)'); return; }
+    setUpiSaving(true);
+    try {
+      await axios.patch('/api/content/admin/settings', { upiId: upiId.trim(), upiPayee: upiPayee.trim() || 'ApiMitra' }, authHeader());
+      setUpiMsg('✅ UPI details saved');
+    } catch (err) {
+      setUpiMsg('❌ ' + (err.response?.data?.message || 'Save failed'));
+    } finally { setUpiSaving(false); }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -91,6 +113,35 @@ export default function AdminSettings() {
         💡 These credentials are stored securely in the database (password is hashed), not in any file.
         Use your new email and password the next time you log in.
       </div>
+
+      {/* UPI Payment Settings */}
+      <form onSubmit={saveUpi} className="mt-8 bg-white rounded-2xl shadow-sm p-6 space-y-5">
+        <div>
+          <h2 className="text-lg font-bold text-gray-800">Payment (UPI) Settings</h2>
+          <p className="text-gray-500 text-sm mt-0.5">The UPI ID users pay to for wallet top-ups. Changing it here updates the QR instantly — no redeploy needed.</p>
+        </div>
+        {upiMsg && (
+          <div className={`rounded-xl p-3 text-sm ${upiMsg.startsWith('✅') ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-600'}`}>
+            {upiMsg}
+          </div>
+        )}
+        <div>
+          <label className="block text-sm font-semibold text-gray-600 mb-1">UPI ID</label>
+          <input value={upiId} onChange={(e) => setUpiId(e.target.value)}
+            placeholder="e.g. 6265751150@okbizaxis"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-600 mb-1">Payee Name (shown in UPI app)</label>
+          <input value={upiPayee} onChange={(e) => setUpiPayee(e.target.value)}
+            placeholder="ApiMitra"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <button type="submit" disabled={upiSaving}
+          className="w-full bg-blue-700 text-white font-bold py-3.5 rounded-xl text-base shadow disabled:opacity-50 active:scale-95 transition-transform">
+          {upiSaving ? 'Saving…' : 'Save UPI Details'}
+        </button>
+      </form>
     </div>
   );
 }

@@ -11,6 +11,9 @@ const siteSettingsSchema = new mongoose.Schema({
   showWhatsapp: { type: Boolean, default: true },
   showPhone: { type: Boolean, default: false },
   showEmail: { type: Boolean, default: false },
+  // Manual UPI top-up config (editable from admin)
+  upiId: { type: String, default: '' },
+  upiPayee: { type: String, default: 'ApiMitra' },
 }, { timestamps: true });
 
 module.exports = mongoose.model('SiteSettings', siteSettingsSchema);

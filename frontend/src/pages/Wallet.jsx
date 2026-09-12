@@ -105,8 +105,7 @@ export default function Wallet() {
               <div className="h-[200px] w-[200px] grid place-items-center text-sm text-gray-400">Loading QR…</div>
             )}
             <div className="mt-3 text-center">
-              <div className="text-xs text-gray-500">Pay to UPI ID</div>
-              <div className="font-bold text-gray-800 select-all">{upi.upiId || '—'}</div>
+              <div className="text-xs text-gray-500">Scan with any UPI app to pay</div>
               {amt >= 10 && <div className="text-xs text-indigo-600 mt-1">Amount pre-filled: ₹{amt}</div>}
             </div>
           </div>
