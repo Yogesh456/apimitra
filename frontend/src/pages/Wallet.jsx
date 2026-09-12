@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { QRCodeSVG } from 'qrcode.react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,16 +26,13 @@ export default function Wallet() {
     loadRequests();
   }, []);
 
-  // Build the UPI deep-link + a QR image for it (amount-aware)
+  // Build the UPI deep-link (rendered as an in-app QR, no external service)
   const amt = Number(amount) || 0;
   const upiLink =
     upi.upiId &&
     `upi://pay?pa=${encodeURIComponent(upi.upiId)}&pn=${encodeURIComponent(upi.payee)}${
       amt >= 10 ? `&am=${amt}` : ''
     }&cu=INR&tn=${encodeURIComponent('ApiMitra Wallet Top-Up')}`;
-  const qrSrc = upiLink
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiLink)}`
-    : '';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -99,8 +97,10 @@ export default function Wallet() {
           {/* Step 2: pay via QR */}
           <label className="block text-xs font-semibold text-gray-500 mb-2">2. Scan &amp; pay with any UPI app</label>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col items-center mb-3">
-            {qrSrc ? (
-              <img src={qrSrc} alt="UPI QR code" width={200} height={200} className="rounded-xl bg-white p-2" />
+            {upiLink ? (
+              <div className="rounded-xl bg-white p-3">
+                <QRCodeSVG value={upiLink} size={200} level="M" />
+              </div>
             ) : (
               <div className="h-[200px] w-[200px] grid place-items-center text-sm text-gray-400">Loading QR…</div>
             )}
