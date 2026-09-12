@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { QRCodeSVG } from 'qrcode.react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,7 +9,7 @@ export default function Wallet() {
   const [utr, setUtr] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [upi, setUpi] = useState({ upiId: '', payee: 'ApiMitra' });
+  const [upi, setUpi] = useState({ upiId: '', payee: 'ApiMitra', qrImageUrl: '/payment-qr.jpg' });
   const [requests, setRequests] = useState([]);
   const presets = [50, 100, 200, 500, 1000];
 
@@ -25,14 +24,6 @@ export default function Wallet() {
     axios.get('/api/wallet/upi-info').then((r) => setUpi(r.data)).catch(() => {});
     loadRequests();
   }, []);
-
-  // Build the UPI deep-link (rendered as an in-app QR, no external service)
-  const amt = Number(amount) || 0;
-  const upiLink =
-    upi.upiId &&
-    `upi://pay?pa=${encodeURIComponent(upi.upiId)}&pn=${encodeURIComponent(upi.payee)}${
-      amt >= 10 ? `&am=${amt}` : ''
-    }&cu=INR&tn=${encodeURIComponent('ApiMitra Wallet Top-Up')}`;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -94,26 +85,18 @@ export default function Wallet() {
               className="flex-1 py-3.5 pr-3 text-base bg-transparent focus:outline-none" />
           </div>
 
-          {/* Step 2: pay via QR */}
+          {/* Step 2: pay via static QR image (admin-configurable) */}
           <label className="block text-xs font-semibold text-gray-500 mb-2">2. Scan &amp; pay with any UPI app</label>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col items-center mb-3">
-            {upiLink ? (
-              <div className="rounded-xl bg-white p-3">
-                <QRCodeSVG value={upiLink} size={200} level="M" />
-              </div>
+            {upi.qrImageUrl ? (
+              <img src={upi.qrImageUrl} alt="Payment QR code" className="w-full max-w-[280px] rounded-xl bg-white" />
             ) : (
               <div className="h-[200px] w-[200px] grid place-items-center text-sm text-gray-400">Loading QR…</div>
             )}
             <div className="mt-3 text-center">
-              <div className="text-xs text-gray-500">Scan with any UPI app to pay</div>
-              {amt >= 10 && <div className="text-xs text-indigo-600 mt-1">Amount pre-filled: ₹{amt}</div>}
+              <div className="text-xs text-gray-500">Scan the QR, pay your chosen amount, then enter the reference below</div>
             </div>
           </div>
-          {upiLink && (
-            <a href={upiLink} className="block text-center text-sm font-semibold text-indigo-600 mb-5">
-              Open in a UPI app on this phone →
-            </a>
-          )}
 
           {/* Step 3: submit UTR */}
           <label className="block text-xs font-semibold text-gray-500 mb-2">3. Enter the UPI reference number (UTR) after paying</label>

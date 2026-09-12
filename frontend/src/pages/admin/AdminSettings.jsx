@@ -16,6 +16,7 @@ export default function AdminSettings() {
   // UPI payment settings
   const [upiId, setUpiId] = useState('');
   const [upiPayee, setUpiPayee] = useState('ApiMitra');
+  const [qrImageUrl, setQrImageUrl] = useState('/payment-qr.jpg');
   const [upiMsg, setUpiMsg] = useState('');
   const [upiSaving, setUpiSaving] = useState(false);
 
@@ -34,6 +35,7 @@ export default function AdminSettings() {
       .then((res) => {
         setUpiId(res.data.upiId || '');
         setUpiPayee(res.data.upiPayee || 'ApiMitra');
+        setQrImageUrl(res.data.qrImageUrl || '/payment-qr.jpg');
         setApiBalance(res.data.apiPortalBalance || 0);
         setApiThreshold(res.data.apiLowBalanceThreshold ?? 100);
       })
@@ -62,7 +64,7 @@ export default function AdminSettings() {
     if (!upiId || !upiId.includes('@')) { setUpiMsg('❌ Enter a valid UPI ID (e.g. name@bank)'); return; }
     setUpiSaving(true);
     try {
-      await axios.patch('/api/content/admin/settings', { upiId: upiId.trim(), upiPayee: upiPayee.trim() || 'ApiMitra' }, authHeader());
+      await axios.patch('/api/content/admin/settings', { upiId: upiId.trim(), upiPayee: upiPayee.trim() || 'ApiMitra', qrImageUrl: qrImageUrl.trim() || '/payment-qr.jpg' }, authHeader());
       setUpiMsg('✅ UPI details saved');
     } catch (err) {
       setUpiMsg('❌ ' + (err.response?.data?.message || 'Save failed'));
@@ -164,6 +166,16 @@ export default function AdminSettings() {
           <input value={upiPayee} onChange={(e) => setUpiPayee(e.target.value)}
             placeholder="ApiMitra"
             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-600 mb-1">Payment QR image URL</label>
+          <input value={qrImageUrl} onChange={(e) => setQrImageUrl(e.target.value)}
+            placeholder="/payment-qr.jpg or a full https://… image link"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <p className="text-xs text-gray-400 mt-1">This static QR image is shown on the wallet. Paste an image link, or use the bundled <code>/payment-qr.jpg</code>. Preview:</p>
+          {qrImageUrl && (
+            <img src={qrImageUrl} alt="QR preview" className="mt-2 h-40 w-40 object-contain rounded-lg border border-slate-200 bg-white" />
+          )}
         </div>
         <button type="submit" disabled={upiSaving}
           className="w-full bg-blue-700 text-white font-bold py-3.5 rounded-xl text-base shadow disabled:opacity-50 active:scale-95 transition-transform">

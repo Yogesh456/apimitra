@@ -18,9 +18,10 @@ router.get('/upi-info', auth, async (req, res) => {
     res.json({
       upiId: (s && s.upiId) || UPI_ID,
       payee: (s && s.upiPayee) || UPI_PAYEE,
+      qrImageUrl: (s && s.qrImageUrl) || '/payment-qr.jpg',
     });
   } catch {
-    res.json({ upiId: UPI_ID, payee: UPI_PAYEE });
+    res.json({ upiId: UPI_ID, payee: UPI_PAYEE, qrImageUrl: '/payment-qr.jpg' });
   }
 });
 
