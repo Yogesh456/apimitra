@@ -7,7 +7,7 @@ const CONTACT = {
   businessName: 'ApiMitra',
   email: 'support@apimitra.com',      // TODO: your real support email
   phone: '+91 62657 51150',           // TODO: your real business phone
-  address: 'Your registered business address, City, State, PIN', // TODO
+  address: 'Near Shishu Mandir, Front of Tahsil Office, Rajnandgaon Road, S. Lohara, 491995', // Chhattisgarh
   hours: 'Monday – Saturday, 10:00 AM – 7:00 PM IST',
 };
 
