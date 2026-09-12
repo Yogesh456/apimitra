@@ -25,6 +25,8 @@ export default function Wallet() {
     loadRequests();
   }, []);
 
+  const amt = Number(amount) || 0;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
@@ -97,6 +99,31 @@ export default function Wallet() {
               <div className="text-xs text-gray-500">Scan the QR, pay your chosen amount, then enter the reference below</div>
             </div>
           </div>
+
+          {/* One-tap "open UPI app" buttons — need a UPI ID configured; amount is pre-filled */}
+          {upi.upiId && (
+            <div className="mb-5">
+              <div className="text-xs text-gray-400 text-center mb-2">or pay in one tap (mobile)</div>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: 'GPay', scheme: 'tez', emoji: '🟢' },
+                  { label: 'PhonePe', scheme: 'phonepe', emoji: '🟣' },
+                  { label: 'Paytm', scheme: 'paytmmp', emoji: '🔵' },
+                  { label: 'UPI', scheme: 'upi', emoji: '💳' },
+                ].map((app) => {
+                  const link = `${app.scheme}://pay?pa=${encodeURIComponent(upi.upiId)}&pn=${encodeURIComponent(upi.payee || 'ApiMitra')}${amt >= 10 ? `&am=${amt}` : ''}&cu=INR&tn=${encodeURIComponent('ApiMitra Wallet Top-Up')}`;
+                  return (
+                    <a key={app.label} href={link}
+                      className="flex flex-col items-center gap-1 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-xs font-semibold text-gray-700 active:scale-95 transition">
+                      <span className="text-lg">{app.emoji}</span>
+                      {app.label}
+                    </a>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-gray-400 text-center mt-1.5">Opens the app with amount pre-filled (works on your phone)</p>
+            </div>
+          )}
 
           {/* Step 3: submit UTR */}
           <label className="block text-xs font-semibold text-gray-500 mb-2">3. Enter the UPI reference number (UTR) after paying</label>
