@@ -4,6 +4,7 @@ const { auth } = require('../middleware/auth');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const SiteSettings = require('../models/SiteSettings');
+const { sendTelegram } = require('../utils/telegram');
 
 // Fallback UPI details (used only if admin hasn't set them in Site Settings)
 const UPI_ID = process.env.UPI_ID || '6265751150@okbizaxis';
@@ -45,6 +46,15 @@ router.post('/topup-request', auth, async (req, res) => {
       utr: String(utr).trim(),
       status: 'pending',
     });
+
+    // Notify admin on Telegram (fire-and-forget)
+    sendTelegram(
+      `💰 <b>New wallet top-up request</b>\n\n` +
+      `👤 ${req.user.name || 'User'} (${req.user.mobile || req.user.email || '—'})\n` +
+      `💵 Amount: ₹${Number(amount)}\n` +
+      `🔖 UTR: <code>${String(utr).trim()}</code>\n\n` +
+      `Verify the payment, then Approve in the admin panel → Top-up Requests.`
+    );
 
     res.json({
       message: 'Top-up request submitted. Your wallet will be credited once we verify the payment.',

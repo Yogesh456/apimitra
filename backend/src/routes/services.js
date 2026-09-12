@@ -6,6 +6,7 @@ const Service = require('../models/Service');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const SiteSettings = require('../models/SiteSettings');
+const { sendTelegram } = require('../utils/telegram');
 
 // GET /api/services - list all active services
 router.get('/', auth, async (req, res) => {
@@ -74,11 +75,22 @@ router.post('/query/:slug', auth, async (req, res) => {
     });
     // Deduct the provider's per-hit cost from the tracked API portal balance
     if (service.apiCostPerQuery > 0) {
-      await SiteSettings.findOneAndUpdate(
+      const updated = await SiteSettings.findOneAndUpdate(
         { key: 'global' },
         { $inc: { apiPortalBalance: -service.apiCostPerQuery } },
-        { upsert: true }
+        { upsert: true, new: true }
       );
+      // Alert once, only when this hit is what crossed the threshold
+      const bal = updated.apiPortalBalance;
+      const th = updated.apiLowBalanceThreshold ?? 100;
+      const prev = bal + service.apiCostPerQuery; // balance before this deduction
+      if (bal <= th && prev > th) {
+        sendTelegram(
+          `⚠️ <b>Low API portal balance</b>\n\n` +
+          `Your FinPayUltra balance is now ₹${bal.toFixed(2)} (threshold ₹${th}).\n` +
+          `Recharge FinPayUltra and update it in Admin Account → API Portal Balance.`
+        );
+      }
     }
     await Transaction.create({
       user: req.user._id,
