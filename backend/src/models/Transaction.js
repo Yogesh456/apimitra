@@ -9,6 +9,9 @@ const transactionSchema = new mongoose.Schema(
     // For wallet top-ups via Razorpay
     razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String },
+    // For wallet top-ups via Instamojo
+    instamojoRequestId: { type: String },
+    instamojoPaymentId: { type: String },
     status: { type: String, enum: ['pending', 'success', 'failed'], default: 'success' },
     // For service queries
     service: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },

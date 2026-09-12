@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,36 @@ export default function Wallet() {
   const [message, setMessage] = useState('');
   const presets = [50, 100, 200, 500, 1000];
 
+  // On return from Instamojo (redirect_url = /wallet?im=1&payment_id=..&payment_request_id=..)
+  // confirm the payment with the backend and credit the wallet.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('im') !== '1') return;
+    const paymentId = params.get('payment_id');
+    const requestId = params.get('payment_request_id');
+    // Clean the URL so a refresh doesn't re-trigger
+    window.history.replaceState({}, '', '/wallet');
+    if (!paymentId || !requestId) {
+      setMessage('❌ Payment was cancelled or failed');
+      return;
+    }
+    (async () => {
+      setLoading(true);
+      try {
+        const v = await axios.get('/api/wallet/confirm', {
+          params: { payment_id: paymentId, payment_request_id: requestId },
+        });
+        setMessage(`✅ ${v.data.message} Balance: ₹${v.data.wallet}`);
+        await refreshWallet();
+      } catch (err) {
+        setMessage(err.response?.data?.message || '❌ Could not confirm payment');
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleTopUp = async (e) => {
     e.preventDefault();
     setMessage('');
@@ -17,26 +47,14 @@ export default function Wallet() {
     setLoading(true);
     try {
       const res = await axios.post('/api/wallet/create-order', { amount: Number(amount) });
-      const { orderId, key } = res.data;
-      const options = {
-        key, amount: Number(amount) * 100, currency: 'INR',
-        name: 'ApiMitra', description: 'Wallet Top-Up', order_id: orderId,
-        handler: async (response) => {
-          try {
-            const v = await axios.post('/api/wallet/verify-payment', response);
-            setMessage(`✅ ${v.data.message} Balance: ₹${v.data.wallet}`);
-            await refreshWallet();
-          } catch { setMessage('❌ Verification failed'); }
-        },
-        prefill: { name: user?.name, email: user?.email, contact: user?.mobile },
-        theme: { color: '#6d28d9' },
-      };
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', () => setMessage('❌ Payment failed'));
-      rzp.open();
+      const { paymentUrl } = res.data;
+      if (!paymentUrl) throw new Error('No payment URL');
+      // Redirect the browser to Instamojo's hosted payment page
+      window.location.href = paymentUrl;
     } catch (err) {
       setMessage(err.response?.data?.message || 'Failed to initiate payment');
-    } finally { setLoading(false); }
+      setLoading(false);
+    }
   };
 
   return (
@@ -82,12 +100,12 @@ export default function Wallet() {
 
           <button onClick={handleTopUp} disabled={loading}
             className="w-full grad-brand text-white font-bold py-4 rounded-2xl text-base shadow-lg disabled:opacity-50 press">
-            {loading ? 'Processing…' : `Pay ₹${amount || '0'} via Razorpay`}
+            {loading ? 'Processing…' : `Pay ₹${amount || '0'} securely`}
           </button>
         </div>
 
         <div className="mt-4 card p-4 text-sm text-gray-600 space-y-2">
-          <div className="flex items-center gap-2">🔒 <span>Secured by Razorpay</span></div>
+          <div className="flex items-center gap-2">🔒 <span>Secured by Instamojo</span></div>
           <div className="flex items-center gap-2">⚡ <span>Instant wallet credit</span></div>
           <div className="flex items-center gap-2">💳 <span>UPI, Cards & Net Banking</span></div>
         </div>
